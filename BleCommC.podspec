@@ -17,7 +17,7 @@ Pod::Spec.new do |s|
 #   * Write the description between the DESC delimiters below.
 #   * Finally, don't worry about the indent, CocoaPods strips it!  
   s.description      = <<-DESC
-A Simple iOS BLE Communication Library as CocoaPod
+Simple BLE Communication Library (Objective C Version) as CocoaPod
                        DESC
 
   s.homepage         = "https://github.com/perusworld/BleCommC"

@@ -342,7 +342,7 @@
 
 -(void) writeRaw:(NSData *)data
 {
-    int dataLength = data.length;
+    int dataLength = (int) data.length;
     int limit = self.packetSize;
     
     if (dataLength <= limit) {
@@ -475,7 +475,7 @@ static UInt8  cmdLength = 3;
         UInt8 dataMarker = ChunkedData;
         for (int index = 0; index < string.length; index = index + dataLength) {
             [data setLength:0];
-            toIndex = MIN(index + dataLength, string.length);
+            toIndex = (int)MIN(index + dataLength, string.length);
             NSString *chunk = [string substringWithRange:NSMakeRange(index, toIndex-index)];
             dataMarker = (index == 0) ? ChunkedDataStart : (toIndex == string.length ? ChunkedDataEnd : ChunkedData);
             [data appendBytes:(unsigned char[]){dataMarker} length:1];
