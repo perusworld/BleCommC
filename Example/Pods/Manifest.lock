@@ -1,0 +1,14 @@
+PODS:
+  - BleCommC (0.1.0)
+
+DEPENDENCIES:
+  - BleCommC (from `../`)
+
+EXTERNAL SOURCES:
+  BleCommC:
+    :path: "../"
+
+SPEC CHECKSUMS:
+  BleCommC: e92b30b6dd8e47322925708a28b53f4e3cff090f
+
+COCOAPODS: 0.39.0

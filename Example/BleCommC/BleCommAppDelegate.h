@@ -8,7 +8,7 @@
 
 @import UIKit;
 
-@interface BleCommAppDelegate : UIResponder <UIApplicationDelegate>
+@interface BleCommAppDelegate : UIResponder <UIApplicationDelegate, UISplitViewControllerDelegate>
 
 @property (strong, nonatomic) UIWindow *window;
 
