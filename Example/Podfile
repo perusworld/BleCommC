@@ -1,0 +1,12 @@
+source 'https://github.com/CocoaPods/Specs.git'
+use_frameworks!
+
+target 'BleCommC_Example', :exclusive => true do
+  pod "BleCommC", :path => "../"
+end
+
+target 'BleCommC_Tests', :exclusive => true do
+  pod "BleCommC", :path => "../"
+
+  
+end
