@@ -1,6 +1,6 @@
 # BleCommC
 
-[![CI Status](http://img.shields.io/travis/Saravana Perumal Shanmugam/BleCommC.svg?style=flat)](https://travis-ci.org/Saravana Perumal Shanmugam/BleCommC)
+[![CI Status](http://img.shields.io/travis/perusworld/BleCommC.svg?style=flat)](https://travis-ci.org/perusworld/BleCommC)
 [![Version](https://img.shields.io/cocoapods/v/BleCommC.svg?style=flat)](http://cocoapods.org/pods/BleCommC)
 [![License](https://img.shields.io/cocoapods/l/BleCommC.svg?style=flat)](http://cocoapods.org/pods/BleCommC)
 [![Platform](https://img.shields.io/cocoapods/p/BleCommC.svg?style=flat)](http://cocoapods.org/pods/BleCommC)
