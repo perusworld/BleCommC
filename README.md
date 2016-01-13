@@ -22,7 +22,7 @@ pod "BleCommC"
 
 ## Author
 
-Saravana Perumal Shanmugam, saravana_shanmugam@mastercard.com
+Saravana Perumal Shanmugam
 
 ## License
 
