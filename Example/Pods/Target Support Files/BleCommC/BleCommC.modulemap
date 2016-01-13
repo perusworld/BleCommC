@@ -1,6 +1,0 @@
-framework module BleCommC {
-  umbrella header "BleCommC-umbrella.h"
-
-  export *
-  module * { export * }
-}
