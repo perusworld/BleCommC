@@ -47,7 +47,7 @@
     }
     [self.names insertObject:@"Scanning...." atIndex:0];
     [self.tableView reloadData];
-    [self.bleScan doScan:SCAN_TIMEOUT];
+    [self.bleScan doScanWithDeviceInfo:SCAN_TIMEOUT];
 }
 
 -(void) onScanDone
@@ -57,9 +57,9 @@
     [self.ids removeAllObjects];
     for(int i = 0; i < self.bleScan.peripherals.count; i++)
     {
-        CBPeripheral *p = [self.bleScan.peripherals objectAtIndex:i];
-        [self.names insertObject:p.name atIndex:0];
-        [self.ids insertObject:p.identifier.UUIDString atIndex:0];
+        BLEOBject *obj = [self.bleScan.peripherals objectAtIndex:i];
+        [self.names insertObject:obj.name atIndex:0];
+        [self.ids insertObject:obj.uuid atIndex:0];
     }
     [self.tableView reloadData];
 }

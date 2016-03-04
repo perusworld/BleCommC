@@ -13,6 +13,13 @@
 
 #define SIMPLE          "simple"
 #define PROTOCOL        "protocol"
+#define DEVICE_INFO     "180A"
+#define MANU_NAME       "2A29"
+#define MODEL_NUM       "2A24"
+#define SERIAL_NUM      "2A25"
+#define HW_REV          "2A27"
+#define FW_REV          "2A26"
+#define SW_REV          "2A28"
 
 @protocol ScanDelegate
 @optional
@@ -64,17 +71,35 @@
 -(void) onDataPacket:(NSData *) data;
 @end
 
-@interface BLEScan : NSObject <CBCentralManagerDelegate> {
+@interface BLEOBject : NSObject
+
+@property CBPeripheral *peripheral;
+@property NSString *uuid;
+@property NSString *name;
+@property NSString *manufacturerName;
+@property NSString *modelNumber;
+@property NSString *serialNumber;
+@property NSString *hardwareRevision;
+@property NSString *firmwareRevision;
+@property NSString *softwareRevision;
+
+@end
+
+@interface BLEScan : NSObject <CBCentralManagerDelegate, CBPeripheralDelegate> {
     
 }
 
+@property CBPeripheral *currentPeripheral;
+@property BLEOBject *currentBLE;
 @property (strong, nonatomic) NSMutableArray *peripherals;
 @property (strong, nonatomic) CBCentralManager *centralManager;
 @property (strong, nonatomic) CBUUID* sUUID;
+@property (strong, nonatomic) CBUUID* iUUID;
 @property (nonatomic,assign) id <ScanDelegate> delegate;
 
 -(void) doInit;
 -(int) doScan:(int) timeout;
+-(int) doScanWithDeviceInfo:(int) timeout;
 
 -(void) scanTimer:(NSTimer *)timer;
 

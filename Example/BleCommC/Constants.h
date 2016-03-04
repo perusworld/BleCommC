@@ -13,6 +13,6 @@
 #define TX_UUID         "fff1"
 #define RX_UUID         "fff2"
 #define F_UUID          "fff3"
-#define SCAN_TIMEOUT    10
+#define SCAN_TIMEOUT    5
 
 #endif /* Constants_h */
