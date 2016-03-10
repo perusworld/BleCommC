@@ -21,14 +21,15 @@
 #define FW_REV          "2A26"
 #define SW_REV          "2A28"
 
-@protocol ScanDelegate
+@protocol ScanDelegate <NSObject>
 @optional
 -(void) onReady;
+-(void) onPoweredOff;
 -(void) onScanDone;
 @required
 @end
 
-@protocol CommDelegate
+@protocol CommDelegate <NSObject>
 @optional
 -(void) onConnect;
 -(void) onDisconnect;
@@ -95,7 +96,7 @@
 @property (strong, nonatomic) CBCentralManager *centralManager;
 @property (strong, nonatomic) CBUUID* sUUID;
 @property (strong, nonatomic) CBUUID* iUUID;
-@property (nonatomic,assign) id <ScanDelegate> delegate;
+@property (nonatomic,weak) id <ScanDelegate> delegate;
 
 -(void) doInit;
 -(int) doScan:(int) timeout;
@@ -118,7 +119,7 @@
 @property (strong, nonatomic) CBUUID* fUUID;
 @property (nonatomic) int packetSize;
 @property (strong, nonatomic) NSUUID* deviceId;
-@property (nonatomic,assign) id <CommDelegate> delegate;
+@property (nonatomic,weak) id <CommDelegate> delegate;
 @property (strong, nonatomic) NSMutableArray *features;
 @property (strong, nonatomic) DataHandler* dataHandler;
 

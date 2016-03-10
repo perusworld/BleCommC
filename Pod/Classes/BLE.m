@@ -70,9 +70,13 @@ bool withDeviceInfo = FALSE;
 - (void)centralManagerDidUpdateState:(CBCentralManager *)central
 {
     if (central.state == CBCentralManagerStatePoweredOn) {
-        [self.delegate onReady];
+        if (self.delegate && [self.delegate respondsToSelector:@selector(onReady)]) {
+            [self.delegate onReady];
+        }
     } else if (central.state == CBCentralManagerStatePoweredOff) {
-        
+        if (self.delegate && [self.delegate respondsToSelector:@selector(onPoweredOff)]) {
+            [self.delegate onPoweredOff];
+        }
     }
 }
 
@@ -130,7 +134,9 @@ bool withDeviceInfo = FALSE;
         }
     }
     if (done) {
-        [self.delegate onScanDone];
+        if (self.delegate && [self.delegate respondsToSelector:@selector(onScanDone)]) {
+            [self.delegate onScanDone];
+        }
     }
 }
 
@@ -141,7 +147,9 @@ bool withDeviceInfo = FALSE;
     if (withDeviceInfo) {
         [self updateDeviceInfo];
     } else {
-        [self.delegate onScanDone];
+        if (self.delegate && [self.delegate respondsToSelector:@selector(onScanDone)]) {
+            [self.delegate onScanDone];
+        }
     }
 }
 
@@ -441,7 +449,9 @@ bool withDeviceInfo = FALSE;
 
 - (void) preDisconnected
 {
-    [self.delegate onDisconnect];
+    if (self.delegate && [self.delegate respondsToSelector:@selector(onDisconnect)]) {
+        [self.delegate onDisconnect];
+    }
 }
 
 - (void) postConnection
@@ -486,13 +496,17 @@ bool withDeviceInfo = FALSE;
 
 -(void) onConnectionFinalized
 {
-    [self.commDelegate onConnect];
+    if (self.commDelegate && [self.commDelegate respondsToSelector:@selector(onConnect)]) {
+        [self.commDelegate onConnect];
+    }
 }
 
 -(void) onData:(NSData *)data
 {
     dispatch_async(dispatch_get_main_queue(), ^{
-        [self.commDelegate onData:[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]];
+        if (self.commDelegate && [self.commDelegate respondsToSelector:@selector(onData:)]) {
+            [self.commDelegate onData:[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]];
+        }
     });
 }
 
@@ -570,7 +584,9 @@ static UInt8  cmdLength = 3;
 {
     [self writeRaw:pingOutData];
     dispatch_async(dispatch_get_main_queue(), ^{
-        [self.commDelegate onConnect];
+        if (self.commDelegate && [self.commDelegate respondsToSelector:@selector(onConnect)]) {
+            [self.commDelegate onConnect];
+        }
     });
     
 }
@@ -583,7 +599,9 @@ static UInt8  cmdLength = 3;
 -(void) onDataPacket:(NSData *)data
 {
     dispatch_async(dispatch_get_main_queue(), ^{
-        [self.commDelegate onData:[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]];
+        if (self.commDelegate && [self.commDelegate respondsToSelector:@selector(onData:)]) {
+            [self.commDelegate onData:[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]];
+        }
     });
 }
 
