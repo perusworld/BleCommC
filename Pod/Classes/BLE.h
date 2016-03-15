@@ -74,15 +74,15 @@
 
 @interface BLEOBject : NSObject
 
-@property CBPeripheral *peripheral;
-@property NSString *uuid;
-@property NSString *name;
-@property NSString *manufacturerName;
-@property NSString *modelNumber;
-@property NSString *serialNumber;
-@property NSString *hardwareRevision;
-@property NSString *firmwareRevision;
-@property NSString *softwareRevision;
+@property (strong, nonatomic) CBPeripheral *peripheral;
+@property (strong, nonatomic) NSString *uuid;
+@property (strong, nonatomic) NSString *name;
+@property (strong, nonatomic) NSString *manufacturerName;
+@property (strong, nonatomic) NSString *modelNumber;
+@property (strong, nonatomic) NSString *serialNumber;
+@property (strong, nonatomic) NSString *hardwareRevision;
+@property (strong, nonatomic) NSString *firmwareRevision;
+@property (strong, nonatomic) NSString *softwareRevision;
 
 @end
 
@@ -90,8 +90,8 @@
     
 }
 
-@property CBPeripheral *currentPeripheral;
-@property BLEOBject *currentBLE;
+@property (strong, nonatomic) CBPeripheral *currentPeripheral;
+@property (strong, nonatomic) BLEOBject *currentBLE;
 @property (strong, nonatomic) NSMutableArray *peripherals;
 @property (strong, nonatomic) CBCentralManager *centralManager;
 @property (strong, nonatomic) CBUUID* sUUID;
