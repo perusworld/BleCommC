@@ -7,7 +7,6 @@
 //
 
 #import <Foundation/Foundation.h>
-
 #import "BLE.h"
 
 @implementation BLEOBject
@@ -20,19 +19,18 @@
 
 @synthesize centralManager;
 @synthesize currentPeripheral;
-@synthesize currentBLE;
 @synthesize peripherals;
 @synthesize delegate;
 
 bool withDeviceInfo = FALSE;
 
-- (void) doInit
+- (void)doInit
 {
     self.centralManager = [[CBCentralManager alloc] initWithDelegate:self queue:nil];
     self.iUUID = [CBUUID UUIDWithString:@DEVICE_INFO];
 }
 
--(int) startScan:(int) timeout
+- (int)startScan:(int)timeout
 {
     if (self.peripherals) {
         [self.peripherals removeAllObjects];
@@ -46,35 +44,48 @@ bool withDeviceInfo = FALSE;
         return -1;
     }
     
-    [NSTimer scheduledTimerWithTimeInterval:(float)timeout target:self selector:@selector(scanTimer:) userInfo:nil repeats:NO];
+    self.timer = [NSTimer scheduledTimerWithTimeInterval:(float)timeout target:self selector:@selector(scanTimer:) userInfo:nil repeats:NO];
     
-    [self.centralManager scanForPeripheralsWithServices:[NSArray arrayWithObject:self.sUUID] options:nil];
+    if (self.sUUID) {
+        [self.centralManager scanForPeripheralsWithServices:[NSArray arrayWithObject:self.sUUID] options:nil];
+    } else {
+        return -1;
+    }
     
     NSLog(@"scanForPeripheralsWithServices");
     
     return 0;
 }
 
--(int) doScan:(int) timeout
+- (int)doScan:(int)timeout
 {
     withDeviceInfo = FALSE;
     return [self startScan:timeout];
 }
 
--(int) doScanWithDeviceInfo:(int) timeout
+- (int)doScanWithDeviceInfo:(int)timeout
 {
     withDeviceInfo = TRUE;
+    return [self startScan:timeout];
+}
+
+- (int)doScanWithTimeout:(NSInteger)timeout withModelNumber:(NSString *)modelNumber andSerialNumber:(NSString *)serialNumber
+{
+    withDeviceInfo = TRUE;
+    self.modelNumber = modelNumber;
+    self.serialNumber = serialNumber;
+    
     return [self startScan:timeout];
 }
 
 - (void)centralManagerDidUpdateState:(CBCentralManager *)central
 {
     if (central.state == CBCentralManagerStatePoweredOn) {
-        if (self.delegate && [self.delegate respondsToSelector:@selector(onReady)]) {
+        if ([self.delegate respondsToSelector:@selector(onReady)]) {
             [self.delegate onReady];
         }
-    } else if (central.state == CBCentralManagerStatePoweredOff) {
-        if (self.delegate && [self.delegate respondsToSelector:@selector(onPoweredOff)]) {
+    } else {
+        if ([self.delegate respondsToSelector:@selector(onPoweredOff)]) {
             [self.delegate onPoweredOff];
         }
     }
@@ -82,106 +93,128 @@ bool withDeviceInfo = FALSE;
 
 - (void)centralManager:(CBCentralManager *)central didDiscoverPeripheral:(CBPeripheral *)peripheral advertisementData:(NSDictionary *)advertisementData RSSI:(NSNumber *)RSSI
 {
-    for(int i = 0; i < self.peripherals.count; i++)
+    for (int i = 0; i < self.peripherals.count; i++)
     {
         BLEOBject *obj = [self.peripherals objectAtIndex:i];
         
         if ((obj.peripheral.identifier == NULL) || (peripheral.identifier == NULL))
+        {
             continue;
+        }
         
         if ([obj.peripheral.identifier.UUIDString isEqualToString:peripheral.identifier.UUIDString])
         {
             obj.peripheral = peripheral;
             obj.uuid = peripheral.identifier.UUIDString;
             obj.name = peripheral.name;
+            obj.RSSI = RSSI;
             NSLog(@"Duplicate UUID found updating...");
+            
             return;
         }
     }
+    
+    NSLog(@"Device: %@", peripheral);
+    NSLog(@"UUID: %@", peripheral.identifier.UUIDString);
+    NSLog(@"name: %@", peripheral.name);
     
     NSLog(@"New UUID, adding %@", peripheral.identifier.UUIDString);
     BLEOBject *obj = [BLEOBject new];
     obj.peripheral = peripheral;
     obj.uuid = peripheral.identifier.UUIDString;
     obj.name = peripheral.name;
+    obj.RSSI = RSSI;
+    obj.connectionAttempts = 0;
     [self.peripherals addObject:obj];
-    
 }
 
-- (void) connectPeripheral:(BLEOBject *)obj
+- (void)connectPeripheral:(BLEOBject *)obj
 {
     NSLog(@"Connecting to peripheral with UUID : %@", obj.peripheral.identifier.UUIDString);
     
-    self.currentBLE = obj;
-    self.currentPeripheral = obj.peripheral;
-    self.currentPeripheral.delegate = self;
-    [self.centralManager connectPeripheral:obj.peripheral
-                                   options:[NSDictionary dictionaryWithObject:[NSNumber numberWithBool:YES] forKey:CBConnectPeripheralOptionNotifyOnDisconnectionKey]];
+    obj.connectionAttempts++;
+    
+    if (obj.connectionAttempts <= 3) {
+        self.currentPeripheral = obj.peripheral;
+        self.currentPeripheral.delegate = self;
+        [self.centralManager connectPeripheral:obj.peripheral
+                                       options:[NSDictionary dictionaryWithObject:[NSNumber numberWithBool:YES] forKey:CBConnectPeripheralOptionNotifyOnDisconnectionKey]];
+    } else {
+        NSLog(@"Max connection attempts for this device");
+        [self.centralManager cancelPeripheralConnection:obj.peripheral];
+        [self updateDeviceInfo];
+    }
 }
 
-- (void) updateDeviceInfo
+- (void)updateDeviceInfo
 {
     BOOL done = TRUE;
-    for(int i = 0; i < self.peripherals.count; i++)
-    {
+    
+    for (int i = 0; i < self.peripherals.count; i++) {
+        
         BLEOBject *obj = [self.peripherals objectAtIndex:i];
-        if (obj.serialNumber) {
-            //noop next
-        } else {
+        
+        if (!obj.serialNumber && obj.connectionAttempts < 3) {
             done = FALSE;
             [self connectPeripheral:obj];
+            
             break;
         }
     }
+    
     if (done) {
-        if (self.delegate && [self.delegate respondsToSelector:@selector(onScanDone)]) {
+        if ([self.delegate respondsToSelector:@selector(onScanDone)]) {
             [self.delegate onScanDone];
         }
     }
 }
 
-- (void) scanTimer:(NSTimer *)timer
+- (void)scanTimer:(NSTimer *)timer
 {
     [self.centralManager stopScan];
+    
     NSLog(@"Stopped Scanning");
+    
     if (withDeviceInfo) {
+        //AW - Sort by RSSI so closest devices get scanned first
+        NSSortDescriptor *sortDescriptor = [[NSSortDescriptor alloc] initWithKey:@"RSSI" ascending:NO];
+        self.peripherals = [self.peripherals sortedArrayUsingDescriptors:@[sortDescriptor]];
         [self updateDeviceInfo];
     } else {
-        if (self.delegate && [self.delegate respondsToSelector:@selector(onScanDone)]) {
+        if ([self.delegate respondsToSelector:@selector(onScanDone)]) {
             [self.delegate onScanDone];
         }
     }
 }
 
--(void) centralManager:(CBCentralManager *)central didConnectPeripheral:(CBPeripheral *)peripheral
+- (void)centralManager:(CBCentralManager *)central didConnectPeripheral:(CBPeripheral *)peripheral
 {
-    if (peripheral.identifier != NULL)
+    if (peripheral.identifier != NULL) {
         NSLog(@"Connected to %@ successful, scanning for device intfo", peripheral.identifier.UUIDString);
-    else
+    } else {
         NSLog(@"Connected to NULL successful");
+    }
     
     self.currentPeripheral = peripheral;
     [self.currentPeripheral discoverServices:@[self.iUUID]];
 }
 
--(void) centralManager:(CBCentralManager *)central didDisconnectPeripheral:(CBPeripheral *)peripheral error:(NSError *)error
+- (void)centralManager:(CBCentralManager *)central didDisconnectPeripheral:(CBPeripheral *)peripheral error:(NSError *)error
 {
     NSLog(@"did disconnect");
     if (withDeviceInfo) {
         self.currentPeripheral.delegate = nil;
         self.currentPeripheral = nil;
-        self.currentBLE = nil;
         [self updateDeviceInfo];
     }
 }
 
--(void) centralManager:(CBCentralManager *)central didFailToConnectPeripheral:(CBPeripheral *)peripheral error:(NSError *)error
+- (void)centralManager:(CBCentralManager *)central didFailToConnectPeripheral:(CBPeripheral *)peripheral error:(NSError *)error
 {
     NSLog(@"did fail to connect");
     if (withDeviceInfo) {
         self.currentPeripheral.delegate = nil;
         self.currentPeripheral = nil;
-        self.currentBLE = nil;
         [self updateDeviceInfo];
     }
 }
@@ -234,22 +267,36 @@ bool withDeviceInfo = FALSE;
     }
 }
 
-- (void) peripheral:(CBPeripheral *)peripheral didUpdateValueForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error
+- (void)peripheral:(CBPeripheral *)peripheral didUpdateValueForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error
 {
+    BLEOBject *currentObject = [[self.peripherals filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"SELF.peripheral == %@", peripheral]] firstObject];
+    
     if ([characteristic.UUID isEqual:[CBUUID UUIDWithString:@MANU_NAME]]) {
-        self.currentBLE.manufacturerName = [[NSString alloc] initWithData:characteristic.value encoding:NSUTF8StringEncoding];
+        currentObject.manufacturerName = [[NSString alloc] initWithData:characteristic.value encoding:NSUTF8StringEncoding];
     } else if ([characteristic.UUID isEqual:[CBUUID UUIDWithString:@MODEL_NUM]]) {
-        self.currentBLE.modelNumber = [[NSString alloc] initWithData:characteristic.value encoding:NSUTF8StringEncoding];
+        currentObject.modelNumber = [[NSString alloc] initWithData:characteristic.value encoding:NSUTF8StringEncoding];
     } else if ([characteristic.UUID isEqual:[CBUUID UUIDWithString:@SERIAL_NUM]]) {
-        self.currentBLE.serialNumber = [[NSString alloc] initWithData:characteristic.value encoding:NSUTF8StringEncoding];
+        currentObject.serialNumber = [[NSString alloc] initWithData:characteristic.value encoding:NSUTF8StringEncoding];
     } else if ([characteristic.UUID isEqual:[CBUUID UUIDWithString:@HW_REV]]) {
-        self.currentBLE.hardwareRevision = [[NSString alloc] initWithData:characteristic.value encoding:NSUTF8StringEncoding];
+        currentObject.hardwareRevision = [[NSString alloc] initWithData:characteristic.value encoding:NSUTF8StringEncoding];
     } else if ([characteristic.UUID isEqual:[CBUUID UUIDWithString:@FW_REV]]) {
-        self.currentBLE.firmwareRevision = [[NSString alloc] initWithData:characteristic.value encoding:NSUTF8StringEncoding];
+        currentObject.firmwareRevision = [[NSString alloc] initWithData:characteristic.value encoding:NSUTF8StringEncoding];
     } else if ([characteristic.UUID isEqual:[CBUUID UUIDWithString:@SW_REV]]) {
-        self.currentBLE.softwareRevision= [[NSString alloc] initWithData:characteristic.value encoding:NSUTF8StringEncoding];
+        currentObject.softwareRevision= [[NSString alloc] initWithData:characteristic.value encoding:NSUTF8StringEncoding];
     }
-    if (self.currentBLE.manufacturerName && self.currentBLE.modelNumber && self.currentBLE.serialNumber && self.currentBLE.hardwareRevision && self.currentBLE.firmwareRevision && self.currentBLE.softwareRevision) {
+    
+    if ([currentObject.modelNumber isEqualToString:self.modelNumber] && [currentObject.serialNumber isEqualToString:self.serialNumber]) {
+        [self.centralManager cancelPeripheralConnection:peripheral];
+        NSLog(@"DEVICE WE WERE LOOKING FOR HAS BEEN FOUND");
+        [self.centralManager stopScan];
+        [self.centralManager cancelPeripheralConnection:self.currentPeripheral];
+        [self.timer invalidate];
+        self.timer = nil;
+        
+        return;
+    }
+    
+    if (currentObject.manufacturerName && currentObject.modelNumber && currentObject.serialNumber && currentObject.hardwareRevision && currentObject.firmwareRevision && currentObject.softwareRevision) {
         [self.centralManager cancelPeripheralConnection:peripheral];
     }
 }
@@ -329,15 +376,16 @@ bool withDeviceInfo = FALSE;
     self.currentPeripheral = peripheral;
     self.currentPeripheral.delegate = self;
     [self.centralManager connectPeripheral:peripheral
-                       options:[NSDictionary dictionaryWithObject:[NSNumber numberWithBool:YES] forKey:CBConnectPeripheralOptionNotifyOnDisconnectionKey]];
+                                   options:[NSDictionary dictionaryWithObject:[NSNumber numberWithBool:YES] forKey:CBConnectPeripheralOptionNotifyOnDisconnectionKey]];
 }
 
 - (void)centralManager:(CBCentralManager *)central didConnectPeripheral:(CBPeripheral *)peripheral
 {
-    if (peripheral.identifier != NULL)
+    if (peripheral.identifier != NULL) {
         NSLog(@"Connected to %@ successful", peripheral.identifier.UUIDString);
-    else
+    } else {
         NSLog(@"Connected to NULL successful");
+    }
     
     self.currentPeripheral = peripheral;
     [self.currentPeripheral discoverServices:@[self.sUUID]];
@@ -392,7 +440,7 @@ bool withDeviceInfo = FALSE;
     }
 }
 
- - (void)peripheral:(CBPeripheral *)peripheral didDiscoverDescriptorsForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error
+- (void)peripheral:(CBPeripheral *)peripheral didDiscoverDescriptorsForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error
 {
     if (!error) {
         for (int index=0; index < characteristic.descriptors.count; index++) {
@@ -449,7 +497,7 @@ bool withDeviceInfo = FALSE;
 
 - (void) preDisconnected
 {
-    if (self.delegate && [self.delegate respondsToSelector:@selector(onDisconnect)]) {
+    if ([self.delegate respondsToSelector:@selector(onDisconnect)]) {
         [self.delegate onDisconnect];
     }
 }
@@ -496,7 +544,7 @@ bool withDeviceInfo = FALSE;
 
 -(void) onConnectionFinalized
 {
-    if (self.commDelegate && [self.commDelegate respondsToSelector:@selector(onConnect)]) {
+    if ([self.commDelegate respondsToSelector:@selector(onConnect)]) {
         [self.commDelegate onConnect];
     }
 }
@@ -504,7 +552,7 @@ bool withDeviceInfo = FALSE;
 -(void) onData:(NSData *)data
 {
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (self.commDelegate && [self.commDelegate respondsToSelector:@selector(onData:)]) {
+        if ([self.commDelegate respondsToSelector:@selector(onData:)]) {
             [self.commDelegate onData:[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]];
         }
     });
@@ -546,7 +594,6 @@ bool withDeviceInfo = FALSE;
 
 @end
 
-
 @implementation ProtocolDataHandler {
     NSData *pingOutData;
     bool insync;
@@ -563,8 +610,6 @@ static UInt8  ChunkedDataEnd = 0xED;
 static UInt8  EOMFirst = 0xFE;
 static UInt8  EOMSecond = 0xFF;
 static UInt8  cmdLength = 3;
-
-
 
 -(id) initWith:(id<BleComm>) bleComm commDelegate:(id<CommDelegate>) commDelegate packetSize:(int)packetSize
 {
@@ -584,7 +629,7 @@ static UInt8  cmdLength = 3;
 {
     [self writeRaw:pingOutData];
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (self.commDelegate && [self.commDelegate respondsToSelector:@selector(onConnect)]) {
+        if ([self.commDelegate respondsToSelector:@selector(onConnect)]) {
             [self.commDelegate onConnect];
         }
     });
@@ -599,7 +644,7 @@ static UInt8  cmdLength = 3;
 -(void) onDataPacket:(NSData *)data
 {
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (self.commDelegate && [self.commDelegate respondsToSelector:@selector(onData:)]) {
+        if ([self.commDelegate respondsToSelector:@selector(onData:)]) {
             [self.commDelegate onData:[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]];
         }
     });
