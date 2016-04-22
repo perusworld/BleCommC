@@ -48,9 +48,9 @@
 @interface DataHandler : NSObject {
 }
 
-@property id<BleComm> bleComm;
-@property id<CommDelegate> commDelegate;
-@property (nonatomic) int packetSize;
+@property (nonatomic, weak) id <BleComm> bleComm;
+@property (nonatomic, weak) id <CommDelegate> commDelegate;
+@property (nonatomic, assign) int packetSize;
 
 -(id) initWith:(id<BleComm>) bleComm commDelegate:(id<CommDelegate>) commDelegate packetSize:(int) packetSize;
 -(void) onConnectionFinalized;
@@ -83,31 +83,37 @@
 @property (strong, nonatomic) NSString *hardwareRevision;
 @property (strong, nonatomic) NSString *firmwareRevision;
 @property (strong, nonatomic) NSString *softwareRevision;
+@property (strong, nonatomic) NSNumber *RSSI;
+@property (assign, nonatomic) NSInteger connectionAttempts;
 
 @end
 
-@interface BLEScan : NSObject <CBCentralManagerDelegate, CBPeripheralDelegate> {
-    
-}
+@interface BLEScan : NSObject <CBCentralManagerDelegate, CBPeripheralDelegate>
 
 @property (strong, nonatomic) CBPeripheral *currentPeripheral;
-@property (strong, nonatomic) BLEOBject *currentBLE;
 @property (strong, nonatomic) NSMutableArray *peripherals;
 @property (strong, nonatomic) CBCentralManager *centralManager;
-@property (strong, nonatomic) CBUUID* sUUID;
-@property (strong, nonatomic) CBUUID* iUUID;
-@property (nonatomic,weak) id <ScanDelegate> delegate;
+@property (strong, nonatomic) CBUUID *sUUID;
+@property (strong, nonatomic) CBUUID *iUUID;
+@property (strong, nonatomic) NSTimer *timer;
+@property (copy, nonatomic) NSString *serialNumber;
+@property (copy, nonatomic) NSString *modelNumber;
+@property (assign, nonatomic) NSInteger connectionAttempts;
+@property (weak, nonatomic) id <ScanDelegate> delegate;
 
--(void) doInit;
--(int) doScan:(int) timeout;
--(int) doScanWithDeviceInfo:(int) timeout;
+- (void)doInit;
 
--(void) scanTimer:(NSTimer *)timer;
+- (int)doScan:(int)timeout;
+
+- (int)doScanWithDeviceInfo:(int)timeout;
+
+- (int)doScanWithTimeout:(NSInteger)timeout withModelNumber:(NSString *)modelNumber andSerialNumber:(NSString *)serialNumber;
+
+- (void)scanTimer:(NSTimer *)timer;
 
 @end
 
-@interface DefaultBLEComm : NSObject <CBCentralManagerDelegate, CBPeripheralDelegate, BleComm> {
-}
+@interface DefaultBLEComm : NSObject <CBCentralManagerDelegate, CBPeripheralDelegate, BleComm>
 
 @property (strong, nonatomic) CBCentralManager *centralManager;
 @property (strong, nonatomic) CBPeripheral *currentPeripheral;
@@ -119,7 +125,7 @@
 @property (strong, nonatomic) CBUUID* fUUID;
 @property (nonatomic) int packetSize;
 @property (strong, nonatomic) NSUUID* deviceId;
-@property (nonatomic,weak) id <CommDelegate> delegate;
+@property (nonatomic, weak) id <CommDelegate> delegate;
 @property (strong, nonatomic) NSMutableArray *features;
 @property (strong, nonatomic) DataHandler* dataHandler;
 

@@ -1,5 +1,5 @@
 PODS:
-  - BleCommC (0.2.1)
+  - BleCommC (0.2.2)
 
 DEPENDENCIES:
   - BleCommC (from `../`)
@@ -9,6 +9,6 @@ EXTERNAL SOURCES:
     :path: ../
 
 SPEC CHECKSUMS:
-  BleCommC: e6eba8a35c53bd17c1c4505d380b1da3f09032c4
+  BleCommC: 74b94f5b4d46583249d121d88a73c4093b7484db
 
 COCOAPODS: 0.39.0
