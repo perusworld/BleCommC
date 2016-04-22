@@ -107,7 +107,7 @@
 
 - (int)doScanWithDeviceInfo:(int)timeout;
 
-- (int)doScanWithTimeout:(NSInteger)timeout withModelNumber:(NSString *)modelNumber andSerialNumber:(NSString *)serialNumber;
+- (int)doScanWithTimeout:(int)timeout withModelNumber:(NSString *)modelNumber andSerialNumber:(NSString *)serialNumber;
 
 - (void)scanTimer:(NSTimer *)timer;
 

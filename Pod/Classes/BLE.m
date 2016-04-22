@@ -86,7 +86,7 @@ bool withDeviceInfo = FALSE;
  * AW - Use the following method if you're scanning for a particular model/serial number of a device
  */
 
-- (int)doScanWithTimeout:(NSInteger)timeout withModelNumber:(NSString *)modelNumber andSerialNumber:(NSString *)serialNumber
+- (int)doScanWithTimeout:(int)timeout withModelNumber:(NSString *)modelNumber andSerialNumber:(NSString *)serialNumber
 {
     withDeviceInfo = TRUE;
     self.modelNumber = modelNumber;
@@ -160,7 +160,7 @@ bool withDeviceInfo = FALSE;
     if (withDeviceInfo) {
         //AW - Sort by RSSI so closest devices get scanned first
         NSSortDescriptor *sortDescriptor = [[NSSortDescriptor alloc] initWithKey:@"RSSI" ascending:NO];
-        self.peripherals = [self.peripherals sortedArrayUsingDescriptors:@[sortDescriptor]];
+        self.peripherals = [[NSMutableArray alloc] initWithArray:[self.peripherals sortedArrayUsingDescriptors:@[sortDescriptor]]];
         [self updateDeviceInfo];
     } else {
         if ([self.delegate respondsToSelector:@selector(onScanDone)]) {
