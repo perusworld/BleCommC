@@ -48,10 +48,9 @@ bool withDeviceInfo = FALSE;
         return -1;
     }
     
-    self.timer = [NSTimer scheduledTimerWithTimeInterval:(float)timeout target:self selector:@selector(scanTimer:) userInfo:nil repeats:NO];
-    
     if (self.sUUID) {
         [self.centralManager scanForPeripheralsWithServices:[NSArray arrayWithObject:self.sUUID] options:nil];
+        self.timer = [NSTimer scheduledTimerWithTimeInterval:(float)timeout target:self selector:@selector(scanTimer:) userInfo:nil repeats:NO];
     } else {
         return -1;
     }
