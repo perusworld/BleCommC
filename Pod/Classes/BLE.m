@@ -212,7 +212,7 @@ bool withDeviceInfo = FALSE;
 - (void)centralManager:(CBCentralManager *)central didConnectPeripheral:(CBPeripheral *)peripheral
 {
     if (peripheral.identifier != NULL) {
-        NSLog(@"Connected to %@ successful, scanning for device intfo", peripheral.identifier.UUIDString);
+        NSLog(@"Connected to %@ successful, scanning for device info", peripheral.identifier.UUIDString);
     } else {
         NSLog(@"Connected to NULL successful");
     }
