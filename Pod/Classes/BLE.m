@@ -24,11 +24,15 @@
 
 bool withDeviceInfo = FALSE;
 
+#pragma mark - LifeCycle
+
 - (void)doInit
 {
     self.centralManager = [[CBCentralManager alloc] initWithDelegate:self queue:nil];
     self.iUUID = [CBUUID UUIDWithString:@DEVICE_INFO];
 }
+
+#pragma mark - PublicMethods
 
 - (int)startScan:(int)timeout
 {
@@ -78,55 +82,7 @@ bool withDeviceInfo = FALSE;
     return [self startScan:timeout];
 }
 
-- (void)centralManagerDidUpdateState:(CBCentralManager *)central
-{
-    if (central.state == CBCentralManagerStatePoweredOn) {
-        if ([self.delegate respondsToSelector:@selector(onReady)]) {
-            [self.delegate onReady];
-        }
-    } else {
-        if ([self.delegate respondsToSelector:@selector(onPoweredOff)]) {
-            [self.delegate onPoweredOff];
-        }
-    }
-}
-
-- (void)centralManager:(CBCentralManager *)central didDiscoverPeripheral:(CBPeripheral *)peripheral advertisementData:(NSDictionary *)advertisementData RSSI:(NSNumber *)RSSI
-{
-    for (int i = 0; i < self.peripherals.count; i++)
-    {
-        BLEOBject *obj = [self.peripherals objectAtIndex:i];
-        
-        if ((obj.peripheral.identifier == NULL) || (peripheral.identifier == NULL))
-        {
-            continue;
-        }
-        
-        if ([obj.peripheral.identifier.UUIDString isEqualToString:peripheral.identifier.UUIDString])
-        {
-            obj.peripheral = peripheral;
-            obj.uuid = peripheral.identifier.UUIDString;
-            obj.name = peripheral.name;
-            obj.RSSI = RSSI;
-            NSLog(@"Duplicate UUID found updating...");
-            
-            return;
-        }
-    }
-    
-    NSLog(@"Device: %@", peripheral);
-    NSLog(@"UUID: %@", peripheral.identifier.UUIDString);
-    NSLog(@"name: %@", peripheral.name);
-    
-    NSLog(@"New UUID, adding %@", peripheral.identifier.UUIDString);
-    BLEOBject *obj = [BLEOBject new];
-    obj.peripheral = peripheral;
-    obj.uuid = peripheral.identifier.UUIDString;
-    obj.name = peripheral.name;
-    obj.RSSI = RSSI;
-    obj.connectionAttempts = 0;
-    [self.peripherals addObject:obj];
-}
+#pragma mark - PrivateMethods
 
 - (void)connectPeripheral:(BLEOBject *)obj
 {
@@ -142,7 +98,10 @@ bool withDeviceInfo = FALSE;
     } else {
         NSLog(@"Max connection attempts for this device");
         [self.centralManager cancelPeripheralConnection:obj.peripheral];
-        [self updateDeviceInfo];
+        
+        if (![self hasDeviceBeenFound]) {
+            [self updateDeviceInfo];
+        }
     }
 }
 
@@ -169,6 +128,15 @@ bool withDeviceInfo = FALSE;
     }
 }
 
+- (BOOL)hasDeviceBeenFound
+{
+    if ([[self.peripherals filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"SELF.serialNumber == %@ && SELF.modelNumber == %@", self.serialNumber, self.modelNumber]] count]) {
+        return YES;
+    } else {
+        return NO;
+    }
+}
+
 - (void)scanTimer:(NSTimer *)timer
 {
     [self.centralManager stopScan];
@@ -184,6 +152,45 @@ bool withDeviceInfo = FALSE;
         if ([self.delegate respondsToSelector:@selector(onScanDone)]) {
             [self.delegate onScanDone];
         }
+    }
+}
+
+#pragma mark - CBCentralManagerDelegate
+
+- (void)centralManagerDidUpdateState:(CBCentralManager *)central
+{
+    if (central.state == CBCentralManagerStatePoweredOn) {
+        if ([self.delegate respondsToSelector:@selector(onReady)]) {
+            [self.delegate onReady];
+        }
+    } else {
+        if ([self.delegate respondsToSelector:@selector(onPoweredOff)]) {
+            [self.delegate onPoweredOff];
+        }
+    }
+}
+
+- (void)centralManager:(CBCentralManager *)central didDiscoverPeripheral:(CBPeripheral *)peripheral advertisementData:(NSDictionary *)advertisementData RSSI:(NSNumber *)RSSI
+{
+    NSPredicate *predicate = [NSPredicate predicateWithFormat:@"SELF.peripheral.identifier.UUIDString == %@", peripheral.identifier.UUIDString];
+    BLEOBject *obj = [[self.peripherals filteredArrayUsingPredicate:predicate] firstObject];
+    
+    if (obj) {
+        obj.peripheral = peripheral;
+        obj.uuid = peripheral.identifier.UUIDString;
+        obj.name = peripheral.name;
+        obj.RSSI = RSSI;
+        NSLog(@"Duplicate UUID found updating...");
+    } else {
+        NSLog(@"New device found: %@", peripheral);
+        
+        obj = [BLEOBject new];
+        obj.peripheral = peripheral;
+        obj.uuid = peripheral.identifier.UUIDString;
+        obj.name = peripheral.name;
+        obj.RSSI = RSSI;
+        obj.connectionAttempts = 0;
+        [self.peripherals addObject:obj];
     }
 }
 
@@ -205,7 +212,10 @@ bool withDeviceInfo = FALSE;
     if (withDeviceInfo) {
         self.currentPeripheral.delegate = nil;
         self.currentPeripheral = nil;
-        [self updateDeviceInfo];
+        
+        if (![self hasDeviceBeenFound]) {
+            [self updateDeviceInfo];
+        }
     }
 }
 
@@ -215,24 +225,26 @@ bool withDeviceInfo = FALSE;
     if (withDeviceInfo) {
         self.currentPeripheral.delegate = nil;
         self.currentPeripheral = nil;
-        [self updateDeviceInfo];
+        
+        if (![self hasDeviceBeenFound]) {
+            [self updateDeviceInfo];
+        }
     }
 }
 
 - (void)peripheral:(CBPeripheral *)peripheral didDiscoverServices:(NSError *)error
 {
-    if (!error)
-    {
-        for (int i=0; i < peripheral.services.count; i++)
-        {
+    if (!error) {
+        
+        for (int i=0; i < peripheral.services.count; i++) {
+            
             CBService *s = [peripheral.services objectAtIndex:i];
+            
             if ([s.UUID isEqual:self.iUUID]) {
                 [peripheral discoverCharacteristics:nil forService:s];
             }
         }
-    }
-    else
-    {
+    } else {
         NSLog(@"Service discovery was unsuccessful!");
         [self.centralManager cancelPeripheralConnection:peripheral];
     }
@@ -240,10 +252,9 @@ bool withDeviceInfo = FALSE;
 
 - (void)peripheral:(CBPeripheral *)peripheral didDiscoverCharacteristicsForService:(CBService *)service error:(NSError *)error
 {
-    if (!error)
-    {
-        for (int i=0; i < service.characteristics.count; i++)
-        {
+    if (!error) {
+        
+        for (int i=0; i < service.characteristics.count; i++) {
             CBCharacteristic *ch = service.characteristics[i];
             if ([ch.UUID isEqual:[CBUUID UUIDWithString:@MANU_NAME]]) {
                 [peripheral readValueForCharacteristic:ch];
@@ -259,9 +270,7 @@ bool withDeviceInfo = FALSE;
                 [peripheral readValueForCharacteristic:ch];
             }
         }
-    }
-    else
-    {
+    } else {
         NSLog(@"Characteristic discorvery unsuccessful!");
         [self.centralManager cancelPeripheralConnection:peripheral];
     }
@@ -289,9 +298,13 @@ bool withDeviceInfo = FALSE;
         [self.centralManager cancelPeripheralConnection:peripheral];
         NSLog(@"DEVICE WE WERE LOOKING FOR HAS BEEN FOUND");
         [self.centralManager stopScan];
-        [self.centralManager cancelPeripheralConnection:self.currentPeripheral];
+        [self.centralManager cancelPeripheralConnection:peripheral];
         [self.timer invalidate];
         self.timer = nil;
+        
+        if ([self.delegate respondsToSelector:@selector(onScanDone)]) {
+            [self.delegate onScanDone];
+        }
         
         return;
     }
