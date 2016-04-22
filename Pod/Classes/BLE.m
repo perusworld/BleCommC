@@ -9,6 +9,8 @@
 #import <Foundation/Foundation.h>
 #import "BLE.h"
 
+static const NSInteger kMaxConnectionAttempts   = 3;
+
 @implementation BLEOBject
 
 
@@ -30,6 +32,10 @@ bool withDeviceInfo = FALSE;
 {
     self.centralManager = [[CBCentralManager alloc] initWithDelegate:self queue:nil];
     self.iUUID = [CBUUID UUIDWithString:@DEVICE_INFO];
+    
+    if (!self.connectionAttempts) {
+        self.connectionAttempts = kMaxConnectionAttempts;
+    }
 }
 
 #pragma mark - PublicMethods
@@ -60,6 +66,10 @@ bool withDeviceInfo = FALSE;
     return 0;
 }
 
+/*
+ * AW - Use the following two methods to scan for all available devices with/without device details
+ */
+
 - (int)doScan:(int)timeout
 {
     withDeviceInfo = FALSE;
@@ -71,6 +81,10 @@ bool withDeviceInfo = FALSE;
     withDeviceInfo = TRUE;
     return [self startScan:timeout];
 }
+
+/*
+ * AW - Use the following method if you're scanning for a particular model/serial number of a device
+ */
 
 - (int)doScanWithTimeout:(NSInteger)timeout withModelNumber:(NSString *)modelNumber andSerialNumber:(NSString *)serialNumber
 {
@@ -89,7 +103,7 @@ bool withDeviceInfo = FALSE;
     
     obj.connectionAttempts++;
     
-    if (obj.connectionAttempts <= 3) {
+    if (obj.connectionAttempts <= self.connectionAttempts) {
         self.currentPeripheral = obj.peripheral;
         self.currentPeripheral.delegate = self;
         [self.centralManager connectPeripheral:obj.peripheral
@@ -98,7 +112,8 @@ bool withDeviceInfo = FALSE;
         NSLog(@"Max connection attempts for this device");
         [self.centralManager cancelPeripheralConnection:obj.peripheral];
         
-        if (![self hasDeviceBeenFound]) {
+        //AW - Continue search is not looking for a particular serial/model
+        if ((![self hasDeviceBeenFound]) || (!self.serialNumber && !self.modelNumber)) {
             [self updateDeviceInfo];
         }
     }
@@ -112,7 +127,7 @@ bool withDeviceInfo = FALSE;
         
         BLEOBject *obj = [self.peripherals objectAtIndex:i];
         
-        if (!obj.serialNumber && obj.connectionAttempts < 3) {
+        if (!obj.serialNumber && obj.connectionAttempts < self.connectionAttempts) {
             done = FALSE;
             [self connectPeripheral:obj];
             
@@ -175,11 +190,12 @@ bool withDeviceInfo = FALSE;
     BLEOBject *obj = [[self.peripherals filteredArrayUsingPredicate:predicate] firstObject];
     
     if (obj) {
+        NSLog(@"Duplicate UUID found updating: %@", peripheral);
+        
         obj.peripheral = peripheral;
         obj.uuid = peripheral.identifier.UUIDString;
         obj.name = peripheral.name;
         obj.RSSI = RSSI;
-        NSLog(@"Duplicate UUID found updating...");
     } else {
         NSLog(@"New device found: %@", peripheral);
         
@@ -212,7 +228,8 @@ bool withDeviceInfo = FALSE;
         self.currentPeripheral.delegate = nil;
         self.currentPeripheral = nil;
         
-        if (![self hasDeviceBeenFound]) {
+        //AW - Continue search is not looking for a particular serial/model
+        if ((![self hasDeviceBeenFound]) || (!self.serialNumber && !self.modelNumber)) {
             [self updateDeviceInfo];
         }
     }
@@ -225,7 +242,8 @@ bool withDeviceInfo = FALSE;
         self.currentPeripheral.delegate = nil;
         self.currentPeripheral = nil;
         
-        if (![self hasDeviceBeenFound]) {
+        //AW - Continue search is not looking for a particular serial/model
+        if ((![self hasDeviceBeenFound]) || (!self.serialNumber && !self.modelNumber)) {
             [self updateDeviceInfo];
         }
     }
@@ -293,9 +311,10 @@ bool withDeviceInfo = FALSE;
         currentObject.softwareRevision= [[NSString alloc] initWithData:characteristic.value encoding:NSUTF8StringEncoding];
     }
     
-    if ([currentObject.modelNumber isEqualToString:self.modelNumber] && [currentObject.serialNumber isEqualToString:self.serialNumber]) {
-        [self.centralManager cancelPeripheralConnection:peripheral];
+    //AW - Only enter this method is looking for a particular serial/model
+    if (self.serialNumber && self.modelNumber && [currentObject.modelNumber isEqualToString:self.modelNumber] && [currentObject.serialNumber isEqualToString:self.serialNumber]) {
         NSLog(@"DEVICE WE WERE LOOKING FOR HAS BEEN FOUND");
+        [self.centralManager cancelPeripheralConnection:peripheral];
         [self.centralManager stopScan];
         [self.centralManager cancelPeripheralConnection:peripheral];
         [self.timer invalidate];

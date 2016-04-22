@@ -98,6 +98,7 @@
 @property (strong, nonatomic) NSTimer *timer;
 @property (copy, nonatomic) NSString *serialNumber;
 @property (copy, nonatomic) NSString *modelNumber;
+@property (assign, nonatomic) NSInteger connectionAttempts;
 @property (weak, nonatomic) id <ScanDelegate> delegate;
 
 - (void)doInit;
