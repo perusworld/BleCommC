@@ -58,7 +58,8 @@
     for(int i = 0; i < self.bleScan.peripherals.count; i++)
     {
         BLEOBject *obj = [self.bleScan.peripherals objectAtIndex:i];
-        [self.names insertObject:obj.name atIndex:0];
+
+        [self.names insertObject:[NSString stringWithFormat:@"%@ (%@)", obj.name, obj.RSSI] atIndex:0];
         [self.ids insertObject:obj.uuid atIndex:0];
     }
     [self.tableView reloadData];
