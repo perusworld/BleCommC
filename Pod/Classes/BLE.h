@@ -101,7 +101,7 @@
 
 - (void)doInit;
 
-- (NSInteger)startScan:(int)timeout;
+- (NSInteger)startScan:(NSInteger)timeout;
 
 - (NSInteger)doScan:(NSInteger)timeout;
 

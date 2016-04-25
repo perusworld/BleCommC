@@ -58,7 +58,7 @@ static const CGFloat kConnectionTimeout         = 5.0f;
 
 #pragma mark - PublicMethods
 
-- (NSInteger)startScan:(int)timeout
+- (NSInteger)startScan:(NSInteger)timeout
 {
     if (self.peripherals) {
         [self.peripherals removeAllObjects];
@@ -184,7 +184,7 @@ static const CGFloat kConnectionTimeout         = 5.0f;
     }
 }
 
--(NSInteger) startScan:(int)timeout {
+-(NSInteger) startScan:(NSInteger)timeout {
     _haltUpdate = NO;
     return [super startScan:timeout];
 }
