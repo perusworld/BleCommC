@@ -10,37 +10,55 @@
 #import "BLE.h"
 
 static const NSInteger kMaxConnectionAttempts   = 3;
+static const CGFloat kConnectionTimeout         = 5.0f;
 
 @implementation BLEOBject
 
+-(BOOL) hasAllDeviceInfo
+{
+    return (self.manufacturerName && self.modelNumber && self.serialNumber && self.hardwareRevision && self.firmwareRevision && self.softwareRevision);
+}
+
+-(NSString *) getValue:(CBUUID *)chr
+{
+    NSString * ret = nil;
+    NSString * chrId = [chr UUIDString];
+    if ([chrId isEqualToString:@MANU_NAME]) {
+        ret = self.manufacturerName;
+    } else if ([chrId isEqualToString:@MODEL_NUM]) {
+        ret = self.modelNumber;
+    } else if ([chrId isEqualToString:@SERIAL_NUM]) {
+        ret = self.serialNumber;
+    } else if ([chrId isEqualToString:@FW_REV]) {
+        ret = self.firmwareRevision;
+    } else if ([chrId isEqualToString:@HW_REV]) {
+        ret = self.hardwareRevision;
+    } else if ([chrId isEqualToString:@SW_REV]) {
+        ret = self.softwareRevision;
+    }
+
+    return ret;
+}
 
 @end
 
 @implementation BLEScan
 
-
 @synthesize centralManager;
-@synthesize currentPeripheral;
 @synthesize peripherals;
 @synthesize delegate;
-
-bool withDeviceInfo = FALSE;
 
 #pragma mark - LifeCycle
 
 - (void)doInit
 {
     self.centralManager = [[CBCentralManager alloc] initWithDelegate:self queue:nil];
-    self.iUUID = [CBUUID UUIDWithString:@DEVICE_INFO];
-    
-    if (!self.connectionAttempts) {
-        self.connectionAttempts = kMaxConnectionAttempts;
-    }
+
 }
 
 #pragma mark - PublicMethods
 
-- (int)startScan:(int)timeout
+- (NSInteger)startScan:(int)timeout
 {
     if (self.peripherals) {
         [self.peripherals removeAllObjects];
@@ -48,125 +66,54 @@ bool withDeviceInfo = FALSE;
         self.peripherals = [NSMutableArray new];
     }
     
-    if (self.centralManager.state != CBCentralManagerStatePoweredOn)
-    {
-        NSLog(@"CoreBluetooth not correctly initialized !");
+    if (self.centralManager.state != CBCentralManagerStatePoweredOn) {
+        NSLog(@"BLE: CoreBluetooth not correctly initialized!");
+        
         return -1;
     }
     
     if (self.sUUID) {
         [self.centralManager scanForPeripheralsWithServices:[NSArray arrayWithObject:self.sUUID] options:nil];
-        self.timer = [NSTimer scheduledTimerWithTimeInterval:(float)timeout target:self selector:@selector(scanTimer:) userInfo:nil repeats:NO];
+        self.scanTimer = [NSTimer scheduledTimerWithTimeInterval:(float)timeout target:self selector:@selector(scanTimer:) userInfo:nil repeats:NO];
     } else {
         return -1;
     }
     
-    NSLog(@"scanForPeripheralsWithServices");
+    NSLog(@"BLE: ScanForPeripheralsWithServices");
     
     return 0;
 }
 
-/*
- * AW - Use the following two methods to scan for all available devices with/without device details
- */
-
-- (int)doScan:(int)timeout
+- (NSInteger)doScan:(NSInteger)timeout
 {
-    withDeviceInfo = FALSE;
-    return [self startScan:timeout];
-}
-
-- (int)doScanWithDeviceInfo:(int)timeout
-{
-    withDeviceInfo = TRUE;
-    return [self startScan:timeout];
-}
-
-/*
- * AW - Use the following method if you're scanning for a particular model/serial number of a device
- */
-
-- (int)doScanWithTimeout:(int)timeout withModelNumber:(NSString *)modelNumber andSerialNumber:(NSString *)serialNumber
-{
-    withDeviceInfo = TRUE;
-    self.modelNumber = modelNumber;
-    self.serialNumber = serialNumber;
-    
     return [self startScan:timeout];
 }
 
 #pragma mark - PrivateMethods
 
-- (void)connectPeripheral:(BLEOBject *)obj
-{
-    NSLog(@"Connecting to peripheral with UUID : %@", obj.peripheral.identifier.UUIDString);
-    
-    obj.connectionAttempts++;
-    
-    if (obj.connectionAttempts <= self.connectionAttempts) {
-        self.currentPeripheral = obj.peripheral;
-        self.currentPeripheral.delegate = self;
-        [self.centralManager connectPeripheral:obj.peripheral
-                                       options:[NSDictionary dictionaryWithObject:[NSNumber numberWithBool:YES] forKey:CBConnectPeripheralOptionNotifyOnDisconnectionKey]];
-    } else {
-        NSLog(@"Max connection attempts for this device");
-        [self.centralManager cancelPeripheralConnection:obj.peripheral];
-        
-        //AW - Continue search is not looking for a particular serial/model
-        if ((![self hasDeviceBeenFound]) || (!self.serialNumber && !self.modelNumber)) {
-            [self updateDeviceInfo];
-        }
-    }
-}
-
-- (void)updateDeviceInfo
-{
-    BOOL done = TRUE;
-    
-    for (int i = 0; i < self.peripherals.count; i++) {
-        
-        BLEOBject *obj = [self.peripherals objectAtIndex:i];
-        
-        if (!obj.serialNumber && obj.connectionAttempts < self.connectionAttempts) {
-            done = FALSE;
-            [self connectPeripheral:obj];
-            
-            break;
-        }
-    }
-    
-    if (done) {
-        if ([self.delegate respondsToSelector:@selector(onScanDone)]) {
-            [self.delegate onScanDone];
-        }
-    }
-}
-
-- (BOOL)hasDeviceBeenFound
-{
-    if ([[self.peripherals filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"SELF.serialNumber == %@ && SELF.modelNumber == %@", self.serialNumber, self.modelNumber]] count]) {
-        return YES;
-    } else {
-        return NO;
-    }
-}
-
 - (void)scanTimer:(NSTimer *)timer
+{
+    [self onScanTimeout];
+}
+
+-(void) onScanTimeout
 {
     [self.centralManager stopScan];
     
-    NSLog(@"Stopped Scanning");
+    NSLog(@"BLE: Stopped Scanning");
     
-    if (withDeviceInfo) {
-        //AW - Sort by RSSI so closest devices get scanned first
-        NSSortDescriptor *sortDescriptor = [[NSSortDescriptor alloc] initWithKey:@"RSSI" ascending:NO];
-        self.peripherals = [[NSMutableArray alloc] initWithArray:[self.peripherals sortedArrayUsingDescriptors:@[sortDescriptor]]];
-        [self updateDeviceInfo];
-    } else {
-        if ([self.delegate respondsToSelector:@selector(onScanDone)]) {
-            [self.delegate onScanDone];
-        }
+    if ([self.delegate respondsToSelector:@selector(onScanDone)]) {
+        [self.delegate onScanDone];
     }
+}
+
+- (void)tearDown
+{
+    [self.scanTimer invalidate];
+    self.scanTimer = nil;
+    
+    [self.centralManager stopScan];
+    
 }
 
 #pragma mark - CBCentralManagerDelegate
@@ -190,14 +137,14 @@ bool withDeviceInfo = FALSE;
     BLEOBject *obj = [[self.peripherals filteredArrayUsingPredicate:predicate] firstObject];
     
     if (obj) {
-        NSLog(@"Duplicate UUID found updating: %@", peripheral);
+        NSLog(@"BLE: Duplicate UUID found updating: %@", peripheral);
         
         obj.peripheral = peripheral;
         obj.uuid = peripheral.identifier.UUIDString;
         obj.name = peripheral.name;
         obj.RSSI = RSSI;
     } else {
-        NSLog(@"New device found: %@", peripheral);
+        NSLog(@"BLE: New device found: %@", peripheral);
         
         obj = [BLEOBject new];
         obj.peripheral = peripheral;
@@ -206,90 +153,210 @@ bool withDeviceInfo = FALSE;
         obj.RSSI = RSSI;
         obj.connectionAttempts = 0;
         [self.peripherals addObject:obj];
+        [self onDeviceDiscovery:obj];
     }
+}
+
+-(void) onDeviceDiscovery:(BLEOBject *)bleObject
+{
+}
+
+@end
+
+@implementation DeviceInfoBLEScan
+
+@synthesize characteristics;
+
+#pragma mark - LifeCycle
+
+- (void)doInit
+{
+    [super doInit];
+    self.iUUID = [CBUUID UUIDWithString:@DEVICE_INFO];
+    if (self.characteristics) {
+        //NOOP
+    } else {
+        self.characteristics = @[[CBUUID UUIDWithString:@MANU_NAME], [CBUUID UUIDWithString:@MODEL_NUM], [CBUUID UUIDWithString:@SERIAL_NUM],[CBUUID UUIDWithString:@HW_REV], [CBUUID UUIDWithString:@FW_REV], [CBUUID UUIDWithString:@SW_REV]];
+    }
+    
+    if (!self.connectionAttempts) {
+        self.connectionAttempts = kMaxConnectionAttempts;
+    }
+}
+
+-(NSInteger) startScan:(int)timeout {
+    _haltUpdate = NO;
+    return [super startScan:timeout];
+}
+
+- (void)connectPeripheral:(BLEOBject *)obj
+{
+    NSLog(@"BLE: Connecting to peripheral with UUID : %@", obj.peripheral.identifier.UUIDString);
+    
+    obj.connectionAttempts++;
+    
+    if (obj.connectionAttempts <= self.connectionAttempts) {
+        
+        obj.peripheral.delegate = self;
+        [self.centralManager connectPeripheral:obj.peripheral
+                                       options:[NSDictionary dictionaryWithObject:[NSNumber numberWithBool:YES] forKey:CBConnectPeripheralOptionNotifyOnDisconnectionKey]];
+        
+        if (self.connectionTimer != nil) {
+            [self.connectionTimer invalidate];
+            self.connectionTimer = nil;
+        }
+        
+        self.connectionTimer = [NSTimer scheduledTimerWithTimeInterval:kConnectionTimeout target:self selector:@selector(connectionTimeOut:) userInfo:obj repeats:NO];
+    } else {
+        NSLog(@"BLE: Max connection attempts for this device");
+        [self.centralManager cancelPeripheralConnection:obj.peripheral];
+        
+        [self updateDeviceInfo];
+    }
+}
+
+- (void) updateDeviceInfo
+{
+    BOOL done = TRUE;
+    
+    if (!_haltUpdate) {
+        for (int index = 0; index < self.peripherals.count; index++) {
+            
+            BLEOBject *obj = [self.peripherals objectAtIndex:index];
+            
+            if (![obj hasAllDeviceInfo] && obj.connectionAttempts < self.connectionAttempts) {
+                done = FALSE;
+                [self connectPeripheral:obj];
+                
+                break;
+            }
+        }
+    }
+    if (done) {
+        if ([self.delegate respondsToSelector:@selector(onScanDone)]) {
+            [self.delegate onScanDone];
+        }
+    }
+}
+
+-(void) onScanTimeout
+{
+    [self.centralManager stopScan];
+    
+    NSLog(@"BLE: Stopped Scanning");
+    
+    //AW - Sort by RSSI so closest devices get scanned first
+    NSSortDescriptor *sortDescriptor = [[NSSortDescriptor alloc] initWithKey:@"RSSI" ascending:NO];
+    self.peripherals = [[NSMutableArray alloc] initWithArray:[self.peripherals sortedArrayUsingDescriptors:@[sortDescriptor]]];
+    [self updateDeviceInfo];
+}
+
+/*
+ * AW - The CBCentralManager's scanning/connecting will keep this object alive and delay dealloc. Stop scanning and cancel all connections.
+ */
+
+- (void)tearDown
+{
+    [super tearDown];
+    for (BLEOBject *device in self.peripherals) {
+        if (device.peripheral.state == CBPeripheralStateConnecting || device.peripheral.state == CBPeripheralStateConnected) {
+            [self.centralManager cancelPeripheralConnection:device.peripheral];
+        }
+    }
+}
+
+- (void)connectionTimeOut:(NSTimer *)timer
+{
+    [self.connectionTimer invalidate];
+    self.connectionTimer = nil;
+    
+    BLEOBject *object = timer.userInfo;
+    object.connectionAttempts = kMaxConnectionAttempts;
+    
+    if (object.peripheral.state == CBPeripheralStateConnecting) {
+        [self.centralManager cancelPeripheralConnection:object.peripheral];
+    }
+    
+    [self updateDeviceInfo];
 }
 
 - (void)centralManager:(CBCentralManager *)central didConnectPeripheral:(CBPeripheral *)peripheral
 {
-    if (peripheral.identifier != NULL) {
-        NSLog(@"Connected to %@ successful, scanning for device info", peripheral.identifier.UUIDString);
-    } else {
-        NSLog(@"Connected to NULL successful");
+    if (self.connectionTimer != nil) {
+        [self.connectionTimer invalidate];
+        self.connectionTimer = nil;
     }
     
-    self.currentPeripheral = peripheral;
-    [self.currentPeripheral discoverServices:@[self.iUUID]];
+    if (peripheral.identifier != NULL) {
+        NSLog(@"BLE: Connected to %@ successful, scanning for device info", peripheral.identifier.UUIDString);
+    } else {
+        NSLog(@"BLE: Connected to NULL successful");
+    }
+    
+    if (self.iUUID) {
+        [peripheral discoverServices:@[self.iUUID]];
+    }
 }
 
 - (void)centralManager:(CBCentralManager *)central didDisconnectPeripheral:(CBPeripheral *)peripheral error:(NSError *)error
 {
-    NSLog(@"did disconnect");
-    if (withDeviceInfo) {
-        self.currentPeripheral.delegate = nil;
-        self.currentPeripheral = nil;
-        
-        //AW - Continue search is not looking for a particular serial/model
-        if ((![self hasDeviceBeenFound]) || (!self.serialNumber && !self.modelNumber)) {
-            [self updateDeviceInfo];
-        }
-    }
+    NSLog(@"BLE: Did disconnect");
+    [self updateDeviceInfo];
 }
 
 - (void)centralManager:(CBCentralManager *)central didFailToConnectPeripheral:(CBPeripheral *)peripheral error:(NSError *)error
 {
-    NSLog(@"did fail to connect");
-    if (withDeviceInfo) {
-        self.currentPeripheral.delegate = nil;
-        self.currentPeripheral = nil;
-        
-        //AW - Continue search is not looking for a particular serial/model
-        if ((![self hasDeviceBeenFound]) || (!self.serialNumber && !self.modelNumber)) {
-            [self updateDeviceInfo];
-        }
+    if (self.connectionTimer != nil) {
+        [self.connectionTimer invalidate];
+        self.connectionTimer = nil;
     }
+    
+    NSLog(@"BLE: Did fail to connect");
+    [self updateDeviceInfo];
 }
 
 - (void)peripheral:(CBPeripheral *)peripheral didDiscoverServices:(NSError *)error
 {
     if (!error) {
-        
-        for (int i=0; i < peripheral.services.count; i++) {
-            
-            CBService *s = [peripheral.services objectAtIndex:i];
-            
-            if ([s.UUID isEqual:self.iUUID]) {
-                [peripheral discoverCharacteristics:nil forService:s];
-            }
-        }
+        [self onDiscoverServices:peripheral];
     } else {
-        NSLog(@"Service discovery was unsuccessful!");
+        NSLog(@"BLE: Service discovery was unsuccessful!");
         [self.centralManager cancelPeripheralConnection:peripheral];
     }
+}
+
+-(void) onDiscoverServices:(CBPeripheral *)peripheral
+{
+    
+    for (int index = 0; index < peripheral.services.count; index++) {
+        
+        CBService *service = [peripheral.services objectAtIndex:index];
+        
+        if ([service.UUID isEqual:self.iUUID]) {
+            //AW - Due to some devices taking a long time to discover services, only request what's needed. Apple docs stress this point.
+            [peripheral discoverCharacteristics:self.characteristics forService:service];
+        }
+    }
+
 }
 
 - (void)peripheral:(CBPeripheral *)peripheral didDiscoverCharacteristicsForService:(CBService *)service error:(NSError *)error
 {
     if (!error) {
-        
-        for (int i=0; i < service.characteristics.count; i++) {
-            CBCharacteristic *ch = service.characteristics[i];
-            if ([ch.UUID isEqual:[CBUUID UUIDWithString:@MANU_NAME]]) {
-                [peripheral readValueForCharacteristic:ch];
-            } else if ([ch.UUID isEqual:[CBUUID UUIDWithString:@MODEL_NUM]]) {
-                [peripheral readValueForCharacteristic:ch];
-            } else if ([ch.UUID isEqual:[CBUUID UUIDWithString:@SERIAL_NUM]]) {
-                [peripheral readValueForCharacteristic:ch];
-            } else if ([ch.UUID isEqual:[CBUUID UUIDWithString:@HW_REV]]) {
-                [peripheral readValueForCharacteristic:ch];
-            } else if ([ch.UUID isEqual:[CBUUID UUIDWithString:@FW_REV]]) {
-                [peripheral readValueForCharacteristic:ch];
-            } else if ([ch.UUID isEqual:[CBUUID UUIDWithString:@SW_REV]]) {
-                [peripheral readValueForCharacteristic:ch];
-            }
-        }
+        [self onDiscoverCharacteristics:peripheral service:service];
     } else {
-        NSLog(@"Characteristic discorvery unsuccessful!");
+        NSLog(@"BLE: Characteristic discorvery unsuccessful!");
         [self.centralManager cancelPeripheralConnection:peripheral];
+    }
+}
+
+-(void) onDiscoverCharacteristics:(CBPeripheral *)peripheral service:(CBService *)service
+{
+    for (int index = 0; index < service.characteristics.count; index++) {
+        CBCharacteristic *characteristic = service.characteristics[index];
+        if ([self.characteristics containsObject:characteristic.UUID]) {
+            [peripheral readValueForCharacteristic:characteristic];
+        }
     }
 }
 
@@ -311,23 +378,45 @@ bool withDeviceInfo = FALSE;
         currentObject.softwareRevision= [[NSString alloc] initWithData:characteristic.value encoding:NSUTF8StringEncoding];
     }
     
-    //AW - Only enter this method is looking for a particular serial/model
-    if (self.serialNumber && self.modelNumber && [currentObject.modelNumber isEqualToString:self.modelNumber] && [currentObject.serialNumber isEqualToString:self.serialNumber]) {
-        NSLog(@"DEVICE WE WERE LOOKING FOR HAS BEEN FOUND");
+    [self onUpdateCharacteristic:peripheral bleObject:currentObject];
+    
+}
+
+-(void) onUpdateCharacteristic:(CBPeripheral *)peripheral bleObject:(BLEOBject *)bleObject
+{
+    BOOL found = YES;
+    for (int index = 0; index < characteristics.count; index++) {
+        if ([bleObject getValue:characteristics[index]]) {
+            continue;
+        } else {
+            found = NO;
+            break;
+        }
+    }
+    if (found) {
+        [self.centralManager cancelPeripheralConnection:peripheral];
+    }
+}
+
+@end
+
+@implementation FilteredBLEScan
+
+@synthesize includeFilter;
+@synthesize excludeFilter;
+
+-(void) onUpdateCharacteristic:(CBPeripheral *)peripheral bleObject:(BLEOBject *)bleObject
+{
+    if ([includeFilter evaluateWithObject:bleObject]) {
+        NSLog(@"BLE: Device we are looking for has been found");
+        self.haltUpdate = YES;
         [self.centralManager cancelPeripheralConnection:peripheral];
         [self.centralManager stopScan];
-        [self.centralManager cancelPeripheralConnection:peripheral];
-        [self.timer invalidate];
-        self.timer = nil;
-        
-        if ([self.delegate respondsToSelector:@selector(onScanDone)]) {
-            [self.delegate onScanDone];
-        }
-        
-        return;
-    }
-    
-    if (currentObject.manufacturerName && currentObject.modelNumber && currentObject.serialNumber && currentObject.hardwareRevision && currentObject.firmwareRevision && currentObject.softwareRevision) {
+        [self.scanTimer invalidate];
+        self.scanTimer = nil;
+    } else if ([excludeFilter evaluateWithObject:bleObject]) {
+        NSLog(@"BLE: Excluding device %@", bleObject.name);
+        bleObject.connectionAttempts = kMaxConnectionAttempts;
         [self.centralManager cancelPeripheralConnection:peripheral];
     }
 }
@@ -335,7 +424,6 @@ bool withDeviceInfo = FALSE;
 @end
 
 @implementation DefaultBLEComm
-
 
 @synthesize centralManager;
 @synthesize currentPeripheral;
@@ -392,7 +480,7 @@ bool withDeviceInfo = FALSE;
     if (deviceId) {
         NSArray *peripheralArray = [centralManager retrievePeripheralsWithIdentifiers:@[deviceId]];
         
-        if(1 == [peripheralArray count])
+        if (1 == [peripheralArray count])
         {
             NSLog(@"Connecting to Peripheral - %@", peripheralArray[0]);
             [self connectPeripheral:peripheralArray[0]];
@@ -400,7 +488,7 @@ bool withDeviceInfo = FALSE;
     }
 }
 
-- (void) connectPeripheral:(CBPeripheral *)peripheral
+- (void)connectPeripheral:(CBPeripheral *)peripheral
 {
     NSLog(@"Connecting to peripheral with UUID : %@", peripheral.identifier.UUIDString);
     
@@ -431,7 +519,7 @@ bool withDeviceInfo = FALSE;
 {
     if (!error)
     {
-        for (int i=0; i < peripheral.services.count; i++)
+        for (int i = 0; i < peripheral.services.count; i++)
         {
             CBService *s = [peripheral.services objectAtIndex:i];
             if ([s.UUID isEqual:self.sUUID]) {

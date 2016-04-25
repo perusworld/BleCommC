@@ -28,6 +28,14 @@
     self.navigationItem.rightBarButtonItem = refreshButton;
     self.detailViewController = (DetailViewController *)[[self.splitViewController.viewControllers lastObject] topViewController];
     self.bleScan = [BLEScan new];
+    
+//    self.bleScan = [DeviceInfoBLEScan new];
+//    ((DeviceInfoBLEScan *) self.bleScan).characteristics = @[[CBUUID UUIDWithString:@MODEL_NUM], [CBUUID UUIDWithString:@SERIAL_NUM]];
+    
+//    self.bleScan = [FilteredBLEScan new];
+//    ((FilteredBLEScan *) self.bleScan).includeFilter = [NSPredicate predicateWithFormat:@"SELF.serialNumber == %@ && SELF.modelNumber == %@", @"s/n", @"m/n"];
+//    ((FilteredBLEScan *) self.bleScan).excludeFilter = [NSPredicate predicateWithFormat:@"SELF.serialNumber != nil && SELF.modelNumber != nil"];
+    
     self.bleScan.sUUID = [CBUUID UUIDWithString:@SERVICE_UUID];
     self.bleScan.delegate = self;
     [self.bleScan doInit];
@@ -47,7 +55,7 @@
     }
     [self.names insertObject:@"Scanning...." atIndex:0];
     [self.tableView reloadData];
-    [self.bleScan doScanWithDeviceInfo:SCAN_TIMEOUT];
+    [self.bleScan doScan:SCAN_TIMEOUT];
 }
 
 -(void) onScanDone
