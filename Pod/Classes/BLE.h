@@ -86,30 +86,51 @@
 @property (strong, nonatomic) NSNumber *RSSI;
 @property (assign, nonatomic) NSInteger connectionAttempts;
 
+- (BOOL)hasAllDeviceInfo;
+- (NSString *)getValue:(CBUUID *) chr;
+
 @end
 
-@interface BLEScan : NSObject <CBCentralManagerDelegate, CBPeripheralDelegate>
+@interface BLEScan : NSObject <CBCentralManagerDelegate>
 
-@property (strong, nonatomic) CBPeripheral *currentPeripheral;
 @property (strong, nonatomic) NSMutableArray *peripherals;
 @property (strong, nonatomic) CBCentralManager *centralManager;
 @property (strong, nonatomic) CBUUID *sUUID;
-@property (strong, nonatomic) CBUUID *iUUID;
-@property (strong, nonatomic) NSTimer *timer;
-@property (copy, nonatomic) NSString *serialNumber;
-@property (copy, nonatomic) NSString *modelNumber;
-@property (assign, nonatomic) NSInteger connectionAttempts;
+@property (strong, nonatomic) NSTimer *scanTimer;
 @property (weak, nonatomic) id <ScanDelegate> delegate;
 
 - (void)doInit;
 
-- (int)doScan:(int)timeout;
+- (NSInteger)startScan:(NSInteger)timeout;
 
-- (int)doScanWithDeviceInfo:(int)timeout;
-
-- (int)doScanWithTimeout:(int)timeout withModelNumber:(NSString *)modelNumber andSerialNumber:(NSString *)serialNumber;
+- (NSInteger)doScan:(NSInteger)timeout;
 
 - (void)scanTimer:(NSTimer *)timer;
+
+-(void)onScanTimeout;
+-(void)onDeviceDiscovery:(BLEOBject *) bleObject;
+
+- (void)tearDown;
+
+@end
+
+@interface DeviceInfoBLEScan : BLEScan <CBPeripheralDelegate>
+
+@property (nonatomic) BOOL haltUpdate;
+@property (strong, nonatomic) CBUUID *iUUID;
+@property (strong, nonatomic) NSArray *characteristics;
+@property (strong, nonatomic) NSTimer *connectionTimer;
+@property (assign, nonatomic) NSInteger connectionAttempts;
+
+- (void) updateDeviceInfo;
+- (void)onDiscoverServices:(CBPeripheral *)peripheral;
+- (void)onDiscoverCharacteristics:(CBPeripheral *)peripheral service:(CBService *)service;
+- (void)onUpdateCharacteristic:(CBPeripheral *)peripheral bleObject:(BLEOBject *)bleObject;
+@end
+
+@interface FilteredBLEScan : DeviceInfoBLEScan
+@property (strong, nonatomic) NSPredicate *includeFilter;
+@property (strong, nonatomic) NSPredicate *excludeFilter;
 
 @end
 
