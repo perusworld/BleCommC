@@ -590,7 +590,7 @@ static const CGFloat kConnectionTimeout         = 5.0f;
 
 @implementation DataHandler
 
-- (id)initWith:(id <BleComm>) bleComm commDelegate:(id<CommDelegate>) commDelegate packetSize:(int)packetSize
+- (id)initWith:(id <BleComm>) bleComm commDelegate:(id<CommDelegate>) commDelegate packetSize:(NSInteger)packetSize
 {
     if (self = [super init]) {
         self.bleComm = bleComm;
@@ -619,18 +619,18 @@ static const CGFloat kConnectionTimeout         = 5.0f;
 
 - (void)writeRaw:(NSData *)data
 {
-    int dataLength = (int) data.length;
-    int limit = self.packetSize;
+    NSInteger dataLength = (int) data.length;
+    NSInteger limit = self.packetSize;
     
     if (dataLength <= limit) {
         [self.bleComm writeRawData:data];
     } else {
-        int len = limit;
-        int loc = 0;
-        int idx = 0;
+        NSInteger len = limit;
+        NSInteger loc = 0;
+        NSInteger idx = 0;
         
         while (loc < dataLength) {
-            int rmdr = dataLength - loc;
+            NSInteger rmdr = dataLength - loc;
             
             if (rmdr <= len) {
                 len = rmdr;
@@ -674,7 +674,7 @@ static UInt8 const EOMFirst = 0xFE;
 static UInt8 const EOMSecond = 0xFF;
 static UInt8 const cmdLength = 3;
 
-- (instancetype)initWith:(id <BleComm>)bleComm commDelegate:(id <CommDelegate>)commDelegate packetSize:(int)packetSize
+- (instancetype)initWith:(id <BleComm>)bleComm commDelegate:(id <CommDelegate>)commDelegate packetSize:(NSInteger)packetSize
 {
     if (self = [super initWith:bleComm commDelegate:commDelegate packetSize:packetSize]) {
         self.pingOutData = [[NSData alloc] initWithBytes:(unsigned char[]){PingOut, EOMFirst, EOMSecond} length:3];

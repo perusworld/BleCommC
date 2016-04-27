@@ -38,7 +38,6 @@
     
     self.bleScan.sUUID = [CBUUID UUIDWithString:@SERVICE_UUID];
     self.bleScan.delegate = self;
-    [self.bleScan doInit];
 }
 
 -(void) onReady
@@ -55,7 +54,7 @@
     }
     [self.names insertObject:@"Scanning...." atIndex:0];
     [self.tableView reloadData];
-    [self.bleScan doScan:SCAN_TIMEOUT];
+    [self.bleScan startScan:SCAN_TIMEOUT withDeviceInfo:FALSE];
 }
 
 -(void) onScanDone
