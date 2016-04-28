@@ -8,7 +8,7 @@
 
 Pod::Spec.new do |s|
   s.name             = "BleCommC"
-  s.version          = "0.5.0"
+  s.version          = "0.5.1"
   s.summary          = "Simple BLE Communication Library - Objective C Version"
 
 # This description is used to generate tags and improve search results.
