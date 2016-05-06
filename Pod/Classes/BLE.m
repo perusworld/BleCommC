@@ -84,6 +84,8 @@ static const CGFloat kConnectionTimeout         = 5.0f;
             [self.centralManager cancelPeripheralConnection:device.peripheral];
         }
     }
+    
+    self.centralManager = nil;
 }
 
 #pragma mark - PrivateMethods
