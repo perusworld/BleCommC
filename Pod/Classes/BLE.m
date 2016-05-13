@@ -375,6 +375,22 @@ static const CGFloat kConnectionTimeout         = 5.0f;
     }
 }
 
+- (void)scanTimer:(NSTimer *)timer
+{
+    NSLog(@"BLE: Stopped Scanning");
+    
+    [self.centralManager stopScan];
+    
+    if (![self hasDeviceBeenFound]) {
+        
+        //AW - Sort by RSSI so closest devices get scanned first
+        NSSortDescriptor *sortDescriptor = [[NSSortDescriptor alloc] initWithKey:@"RSSI" ascending:NO];
+        self.peripherals = [[NSMutableArray alloc] initWithArray:[self.peripherals sortedArrayUsingDescriptors:@[sortDescriptor]]];
+        
+        [self updateDeviceInfo];
+    }
+}
+
 #pragma mark - CBPeripheralDelegate
 
 - (void)peripheral:(CBPeripheral *)peripheral didUpdateValueForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error
