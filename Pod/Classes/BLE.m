@@ -352,6 +352,45 @@ static const CGFloat kConnectionTimeout         = 5.0f;
     }
 }
 
+- (void)updateDeviceInfo
+{
+    BOOL done = TRUE;
+    
+    for (int i = 0; i < self.peripherals.count; i++) {
+        
+        BLEOBject *object = [self.peripherals objectAtIndex:i];
+        
+        if (!object.serialNumber && object.connectionAttempts < self.connectionAttempts) {
+            done = FALSE;
+            [self connectPeripheral:object];
+            
+            break;
+        }
+    }
+    
+    if (done && ![self hasDeviceBeenFound]) {
+        if ([self.delegate respondsToSelector:@selector(onScanDone)]) {
+            [self.delegate onScanDone];
+        }
+    }
+}
+
+- (void)scanTimer:(NSTimer *)timer
+{
+    NSLog(@"BLE: Stopped Scanning");
+    
+    [self.centralManager stopScan];
+    
+    if (![self hasDeviceBeenFound]) {
+        
+        //AW - Sort by RSSI so closest devices get scanned first
+        NSSortDescriptor *sortDescriptor = [[NSSortDescriptor alloc] initWithKey:@"RSSI" ascending:NO];
+        self.peripherals = [[NSMutableArray alloc] initWithArray:[self.peripherals sortedArrayUsingDescriptors:@[sortDescriptor]]];
+        
+        [self updateDeviceInfo];
+    }
+}
+
 #pragma mark - CBPeripheralDelegate
 
 - (void)peripheral:(CBPeripheral *)peripheral didUpdateValueForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error
